@@ -1,0 +1,454 @@
+{
+  "name": "workflow-telegram-chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1520,
+        -80
+      ],
+      "id": "f6aba23a-2f6f-4679-940b-4a0bef98a8cc",
+      "name": "Telegram Trigger",
+      "webhookId": "f1e06bce-7fc5-44ef-8ce1-ba454cb7b8c2",
+      "credentials": {
+        "telegramApi": {
+          "id": "0Ap9PD62rVjsIrG9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2ef2ae3f-82ad-4a55-a4dc-28e74cd031c2",
+              "name": "queue",
+              "value": "={{ $json.message.text.trim().toLowerCase().normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\").replace(/\\s*,\\s*/g, \",\")}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": "=",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1104,
+        -80
+      ],
+      "id": "dd3242ea-de50-41bd-8d4a-76bd0906d120",
+      "name": "input_format"
+    },
+    {
+      "parameters": {
+        "url": "https://api.openweathermap.org/data/2.5/weather",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.queue  + \",BR\"}}"
+            },
+            {
+              "name": "units",
+              "value": "metric"
+            },
+            {
+              "name": "lang",
+              "value": "pt_br"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -896,
+        -80
+      ],
+      "id": "ea543bcb-62f1-429c-98a1-764b64ba964b",
+      "name": "OpenWeather API",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "iky9acpmIKeXjHPt",
+          "name": "Weather Query Auth"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "edb544cc-67ba-4ecd-a45c-8dfe528f0f39",
+              "leftValue": "={{ $json.cod }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "3f013b5c-38d7-476c-b2bd-df5d532914f2",
+              "leftValue": "={{ $json.main.temp }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "467d5b1f-3f6e-4219-823c-2adc05e1e15a",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -688,
+        -80
+      ],
+      "id": "348e2268-af4e-44a7-94d1-03981cfff7e0",
+      "name": "ResponseValidate"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "86b81006-e100-47a3-88cc-e650aa185ab2",
+              "name": "text",
+              "value": "={{ \"🌡️ Agora em \" + $json.name + \", a temperatura é de \" + Math.round($json.main.temp) + \"°C com \" + $json.weather[0].description + \".\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -464,
+        -176
+      ],
+      "id": "a6f16c83-2883-47f5-a8b0-914efad7b875",
+      "name": "Success Response"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1bf35efc-d8cc-4749-91d8-04e796ca2cd1",
+              "name": "text",
+              "value": "=Cidade {{ $('input_format').item.json.queue }} não encontrada. Use o formato Cidade,UF (ex.: São Paulo,SP)",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -464,
+        32
+      ],
+      "id": "76007208-d30c-4bb3-939d-14f432cf8cba",
+      "name": "Erro Response"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "messages": {
+          "messageValues": [
+            {
+              "type": "AIMessagePromptTemplate",
+              "message": "=Você é um assistente meteorológico simpático e brasileiro. Reescreva a mensagem abaixo de forma natural, amigável e breve. Mantenha o emoji e os dados exatos de temperatura. Adicione uma dica curta sobre o clima (ex: \"leve um guarda-chuva\" ou \"dia perfeito pra correr\").  Mensagem original: {{ $json.response }}"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        16,
+        -272
+      ],
+      "id": "cbc90215-06ba-4cc7-a58a-d33fb277c148",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -128
+      ],
+      "id": "4db3ae16-97fe-41f6-8d65-758e613ffc09",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "RStJALkwx3Z1wKgI",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
+        "text": "={{ $json.text}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        368,
+        -32
+      ],
+      "id": "24715a2b-fd77-40c6-be8d-54175f9e99f6",
+      "name": "Telegram response",
+      "webhookId": "1c5ad124-8bbe-4308-9aff-f38289ced300",
+      "credentials": {
+        "telegramApi": {
+          "id": "0Ap9PD62rVjsIrG9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b7474981-a4b6-43df-9f8f-58081c9b68be",
+              "leftValue": "={{ $('Config Gemini').item.json.USE_GEMINI }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        -48
+      ],
+      "id": "c12b35c1-b24b-4550-b2cd-8d00c6c83e1f",
+      "name": "Use Gemini"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "16505179-9639-4ef8-bb45-781cff99229a",
+              "name": "USE_GEMINI",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1312,
+        -80
+      ],
+      "id": "f1a40956-8eb6-4f93-aa15-f1d60f97f5fb",
+      "name": "Config Gemini"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "input_format": {
+      "main": [
+        [
+          {
+            "node": "OpenWeather API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenWeather API": {
+      "main": [
+        [
+          {
+            "node": "ResponseValidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ResponseValidate": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Erro Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Response": {
+      "main": [
+        [
+          {
+            "node": "Use Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Erro Response": {
+      "main": [
+        [
+          {
+            "node": "Use Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Telegram response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Gemini": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Gemini": {
+      "main": [
+        [
+          {
+            "node": "input_format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b10a9959-fedf-4aa8-b05e-beb3e635b294",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "785905fdf8413f6cc0b2923f5c00d3da6139729102d07ca47b6989c8e1b47f97"
+  },
+  "id": "6iOxPGEWrRVbIROw",
+  "tags": []
+}
